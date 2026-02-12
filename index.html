@@ -4,23 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NeuroGuardian — Tools That Work With Your Brain | ADHD & Neurodivergent Toolkit</title>
-  <meta name="description" content="Interactive brain dump, grounding exercises, mood tracking, focus planning, and 52 calming sounds — all designed for ADHD, autism, and AuDHD brains. Free tools, no sign-up required." />
+  <meta name="description" content="Interactive brain dump, grounding exercises, mood tracking, focus planning, and 12 mixable calming sounds — all designed for ADHD, autism, and AuDHD brains. Free tools, no sign-up required." />
   <meta name="keywords" content="ADHD tools, neurodivergent, autism, AuDHD, brain dump, grounding exercise, mood tracker, focus planner, brown noise, sensory regulation, executive function, neurodivergent productivity" />
   <meta name="author" content="NeuroGuardian" />
-  <link rel="canonical" href="https://www.neuroguardian.ca/" />
+  <link rel="canonical" href="https://www.neurodivergentharmony.com/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://www.neuroguardian.ca/" />
+  <meta property="og:url" content="https://www.neurodivergentharmony.com/" />
   <meta property="og:title" content="NeuroGuardian — Tools That Work With Your Brain" />
-  <meta property="og:description" content="Interactive brain dump, grounding exercises, mood tracking, focus planning, and 52 calming sounds — built for ADHD, autism, and AuDHD brains." />
+  <meta property="og:description" content="Interactive brain dump, grounding exercises, mood tracking, focus planning, and 12 mixable calming sounds — built for ADHD, autism, and AuDHD brains." />
   <meta property="og:site_name" content="NeuroGuardian" />
   <meta property="og:locale" content="en_CA" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="NeuroGuardian — Tools That Work With Your Brain" />
-  <meta name="twitter:description" content="Interactive brain dump, grounding exercises, mood tracking, and 52 calming sounds — designed for neurodivergent brains." />
+  <meta name="twitter:description" content="Interactive brain dump, grounding exercises, mood tracking, and 12 mixable calming sounds — designed for neurodivergent brains." />
 
   <!-- Structured Data -->
   <script type="application/ld+json">
@@ -28,19 +28,14 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "NeuroGuardian",
-    "url": "https://www.neuroguardian.ca",
+    "url": "https://www.neurodivergentharmony.com",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "Web",
-    "description": "Interactive tools for ADHD, autism, and neurodivergent minds — brain dump, grounding, mood tracking, focus planning, and 52 calming sounds.",
+    "description": "Interactive tools for ADHD, autism, and neurodivergent minds — brain dump, grounding, mood tracking, focus planning, and 12 mixable calming sounds.",
     "offers": [
       { "@type": "Offer", "price": "0", "priceCurrency": "CAD", "name": "Free" },
       { "@type": "Offer", "price": "4.97", "priceCurrency": "CAD", "name": "Pro" }
-    ],
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.9",
-      "ratingCount": "312"
-    }
+    ]
   }
   </script>
 
@@ -482,6 +477,129 @@
       );
     }
 
+    // ═══════ NEUROSOUNDS ENGINE ═══════
+    function NeuroSounds({isPremium,onUpgrade}) {
+      const actx=useRef(null);
+      const nodes=useRef({});
+      const [playing,setPlaying]=useState({});
+      const [volumes,setVolumes]=useState({});
+      const [masterVol,setMasterVol]=useState(0.6);
+      const masterGain=useRef(null);
+
+      const sounds=[
+        {id:"brown",name:"Brown Noise",icon:"🟤",color:C.gold,cat:"noise",desc:"Deep, rumbling — ADHD favorite"},
+        {id:"white",name:"White Noise",icon:"⚪",color:C.mgray,cat:"noise",desc:"Full spectrum, masks everything"},
+        {id:"pink",name:"Pink Noise",icon:"🩷",color:C.rose,cat:"noise",desc:"Balanced, natural feeling"},
+        {id:"rain",name:"Rain",icon:"🌧",color:C.blue,cat:"nature",desc:"Steady rainfall on window"},
+        {id:"thunder",name:"Thunderstorm",icon:"⛈",color:C.lav,cat:"nature",desc:"Distant rumbles + rain"},
+        {id:"ocean",name:"Ocean Waves",icon:"🌊",color:C.teal,cat:"nature",desc:"Rolling waves on shore"},
+        {id:"wind",name:"Wind",icon:"💨",color:C.sky,cat:"nature",desc:"Gentle breeze through trees"},
+        {id:"fire",name:"Crackling Fire",icon:"🔥",color:C.coral,cat:"nature",desc:"Cozy fireplace crackle"},
+        {id:"fan",name:"Fan / AC",icon:"❄️",color:C.blue,cat:"mechanical",desc:"Steady hum, very masking"},
+        {id:"train",name:"Train",icon:"🚂",color:C.char,cat:"mechanical",desc:"Rhythmic rail movement"},
+        {id:"bino40",name:"40Hz Focus",icon:"🧠",color:C.gold,cat:"binaural",desc:"Gamma — focus + concentration"},
+        {id:"bino10",name:"10Hz Calm",icon:"🧘",color:C.green,cat:"binaural",desc:"Alpha — calm + relaxation"},
+      ];
+      const presets=[
+        {name:"Deep Focus",desc:"Brown + 40Hz binaural",ids:{brown:0.7,bino40:0.3}},
+        {name:"Calm Down",desc:"Rain + pink noise",ids:{rain:0.6,pink:0.4}},
+        {name:"Sleep",desc:"Ocean + 10Hz binaural",ids:{ocean:0.6,bino10:0.25}},
+        {name:"Mask All",desc:"Brown + fan + rain",ids:{brown:0.5,fan:0.4,rain:0.3}},
+      ];
+      function getCtx(){
+        if(!actx.current){actx.current=new(window.AudioContext||window.webkitAudioContext)();masterGain.current=actx.current.createGain();masterGain.current.gain.value=masterVol;masterGain.current.connect(actx.current.destination);}
+        if(actx.current.state==="suspended")actx.current.resume();
+        return actx.current;
+      }
+      function makeNoise(type){
+        const ctx=getCtx();const sr=ctx.sampleRate;const len=sr*2;const buf=ctx.createBuffer(2,len,sr);
+        for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);let last=0;let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+          for(let i=0;i<len;i++){const w=Math.random()*2-1;
+            if(type==="brown"){last+=(w*0.02);last*=0.998;if(last>1)last=1;if(last<-1)last=-1;d[i]=last*3.5;}
+            else if(type==="pink"){b0=0.99886*b0+w*0.0555179;b1=0.99332*b1+w*0.0750759;b2=0.969*b2+w*0.153852;b3=0.8665*b3+w*0.3104856;b4=0.55*b4+w*0.5329522;b5=-0.7616*b5-w*0.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;b6=w*0.115926;}
+            else{d[i]=w*0.7;}
+        }}
+        const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;return src;
+      }
+      function makeNature(type){
+        const ctx=getCtx();const sr=ctx.sampleRate;const len=sr*4;const buf=ctx.createBuffer(2,len,sr);
+        for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);let last=0;
+          for(let i=0;i<len;i++){const t=i/sr;const w=Math.random()*2-1;
+            if(type==="rain"){last+=(w*0.015);last*=0.997;d[i]=(last*2+Math.sin(t*127)*Math.sin(t*84)*0.3*w)*0.7;}
+            else if(type==="thunder"){last+=(w*0.015);last*=0.997;const boom=Math.sin(t*0.8)*Math.exp(-((t%4)-1)*((t%4)-1)*2)*0.5;d[i]=(last*1.5+boom)*0.6;}
+            else if(type==="ocean"){const wave=Math.sin(t*0.4)*0.5+Math.sin(t*0.17)*0.3;last+=(w*0.008);last*=0.999;d[i]=(last+w*0.15*(0.5+wave*0.5))*1.5;}
+            else if(type==="wind"){const gust=Math.sin(t*0.3)*0.4+Math.sin(t*0.13)*0.3;last+=(w*0.01*(0.5+gust*0.5));last*=0.998;d[i]=last*2.5;}
+            else if(type==="fire"){const crackle=(Math.random()<0.02)?w*0.8:0;last+=(w*0.005);last*=0.999;d[i]=(last*1.5+crackle)*0.8;}
+            else if(type==="fan"){last+=(w*0.012);last*=0.998;d[i]=(last*2.5+Math.sin(t*120*Math.PI*2)*0.02)*0.7;}
+            else if(type==="train"){const clack=Math.sin(t*2.1*Math.PI*2)>0.95?w*0.5:0;last+=(w*0.01);last*=0.998;d[i]=(last*2+clack)*0.6;}
+        }}
+        const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;return src;
+      }
+      function makeBinaural(freq){
+        const ctx=getCtx();const oL=ctx.createOscillator();const oR=ctx.createOscillator();
+        oL.frequency.value=200;oR.frequency.value=200+freq;oL.type="sine";oR.type="sine";
+        const merger=ctx.createChannelMerger(2);const gL=ctx.createGain();const gR=ctx.createGain();
+        gL.gain.value=0.5;gR.gain.value=0.5;oL.connect(gL);gL.connect(merger,0,0);oR.connect(gR);gR.connect(merger,0,1);
+        return{node:merger,start:()=>{oL.start();oR.start();},stop:()=>{oL.stop();oR.stop();}};
+      }
+      function toggleSound(id){
+        if(playing[id]){
+          const n=nodes.current[id];if(n){try{if(n.stop)n.stop();}catch(e){}try{if(n.binoStop)n.binoStop();}catch(e){}if(n.gain)n.gain.disconnect();}
+          delete nodes.current[id];setPlaying(p=>{const u={...p};delete u[id];return u;});
+        }else{
+          const ctx=getCtx();const gain=ctx.createGain();gain.gain.value=volumes[id]||0.5;gain.connect(masterGain.current);
+          let src;
+          if(["brown","white","pink"].includes(id)){src=makeNoise(id);src.connect(gain);src.start();}
+          else if(id==="bino40"||id==="bino10"){const b=makeBinaural(id==="bino40"?40:10);b.node.connect(gain);b.start();src={stop:()=>b.stop(),binoStop:b.stop};}
+          else{src=makeNature(id);src.connect(gain);src.start();}
+          nodes.current[id]={...src,gain};setPlaying(p=>({...p,[id]:true}));setVolumes(v=>({...v,[id]:v[id]||0.5}));
+        }
+      }
+      function setVol(id,v){setVolumes(p=>({...p,[id]:v}));if(nodes.current[id]?.gain)nodes.current[id].gain.gain.value=v;}
+      function setMaster(v){setMasterVol(v);if(masterGain.current)masterGain.current.gain.value=v;}
+      function stopAll(){Object.keys(playing).forEach(id=>{const n=nodes.current[id];if(n){try{if(n.stop)n.stop();}catch(e){}try{if(n.binoStop)n.binoStop();}catch(e){}if(n.gain)n.gain.disconnect();}});nodes.current={};setPlaying({});setVolumes({});}
+      function applyPreset(p){stopAll();setTimeout(()=>{Object.entries(p.ids).forEach(([id,vol])=>{setVolumes(v=>({...v,[id]:vol}));toggleSound(id);setTimeout(()=>setVol(id,vol),100);});},150);}
+      useEffect(()=>()=>{stopAll();if(actx.current)try{actx.current.close();}catch(e){}},[]);
+      const activeCount=Object.keys(playing).length;
+      const soundCats=[{key:"noise",label:"Noise"},{key:"nature",label:"Nature & Ambient"},{key:"mechanical",label:"Mechanical"},{key:"binaural",label:"Binaural Beats 🎧"}];
+
+      return(
+        <div style={{position:"relative"}}>
+          {!isPremium&&<PremiumLock feature="NeuroSounds — 12 Mixable Sounds" onUpgrade={onUpgrade}/>}
+          <div style={{opacity:isPremium?1:0.4}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,padding:"12px 16px",background:C.xmint,borderRadius:10,border:`1px solid ${C.mint}`,flexWrap:"wrap"}}>
+              <span style={{fontSize:13,fontWeight:600,color:C.teal}}>{activeCount>0?`${activeCount} sound${activeCount>1?"s":""} playing`:"Tap sounds to mix them together"}</span>
+              <div style={{flex:1}}/>
+              <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:C.mgray}}>Vol</span><input type="range" min="0" max="1" step="0.05" value={masterVol} onChange={e=>setMaster(parseFloat(e.target.value))} style={{width:70,accentColor:C.teal}}/></div>
+              {activeCount>0&&<button onClick={stopAll} style={{padding:"5px 12px",background:C.coral,color:"white",border:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}}>Stop All</button>}
+            </div>
+            <div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:700,color:C.teal,marginBottom:8}}>Quick Presets</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{presets.map(p=><button key={p.name} onClick={()=>applyPreset(p)} style={{padding:"8px 14px",background:"white",border:`1.5px solid ${C.lgray}`,borderRadius:8,cursor:"pointer",textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:C.deep}}>{p.name}</div><div style={{fontSize:10,color:C.mgray}}>{p.desc}</div></button>)}</div>
+            </div>
+            {soundCats.map(cat=>{const cs=sounds.filter(s=>s.cat===cat.key);if(!cs.length)return null;return(
+              <div key={cat.key} style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.mgray,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>{cat.label}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}} className="grid-2">
+                  {cs.map(s=>{const isOn=playing[s.id];return(
+                    <div key={s.id} style={{background:isOn?s.color+"12":"white",border:`1.5px solid ${isOn?s.color:C.lgray}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",transition:"all 0.2s"}} onClick={()=>toggleSound(s.id)}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                        <span style={{fontSize:16}}>{s.icon}</span><span style={{fontSize:13,fontWeight:700,color:isOn?s.color:C.char}}>{s.name}</span>
+                        {isOn&&<span style={{marginLeft:"auto",width:7,height:7,borderRadius:"50%",background:s.color,animation:"breathe 2s ease-in-out infinite"}}/>}
+                      </div>
+                      <div style={{fontSize:10,color:C.mgray}}>{s.desc}</div>
+                      {isOn&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}} onClick={e=>e.stopPropagation()}>
+                        <input type="range" min="0" max="1" step="0.05" value={volumes[s.id]||0.5} onChange={e=>setVol(s.id,parseFloat(e.target.value))} style={{flex:1,accentColor:s.color}}/>
+                        <span style={{fontSize:9,color:s.color,fontWeight:600}}>{Math.round((volumes[s.id]||0.5)*100)}%</span>
+                      </div>}
+                    </div>);})}
+                </div>
+              </div>);})}
+            <div style={{padding:10,background:C.ltlav,borderRadius:8,fontSize:11,color:C.lav}}>🎧 <strong>Tip:</strong> Use headphones for binaural beats. Mix multiple sounds for your perfect environment.</div>
+          </div>
+        </div>
+      );
+    }
+
     // ═══════ SENSORY PROFILE ═══════
     function SensoryProfile({isPremium,onUpgrade}) {
       const [profile,setProfile]=useState(S.get("sensory_profile",{}));
@@ -534,10 +652,10 @@
 
     const faqs=[
       {q:"How is this different from any other productivity app?",a:"Every feature is designed specifically for neurodivergent brains. Our brain dump uses the Eisenhower matrix with ADHD-friendly language. Our planner limits you to 3 tasks because we know the ADHD brain gets paralyzed by 47-item to-do lists. Nothing here was designed for neurotypical people and 'adapted.'"},
-      {q:"Why should I pay when YouTube has free brown noise?",a:"YouTube has ads that break your flow, autoplay that changes your sound, and requires your screen to stay on. Our NeuroSounds generates audio in real-time — it never loops, never repeats, and never interrupts. Mix up to 8 sounds with presets designed by neurodivergent users. Plus you get 9 interactive tools, not just noise."},
+      {q:"Why should I pay when YouTube has free brown noise?",a:"YouTube has ads that break your flow, autoplay that changes your sound, and requires your screen to stay on. Our NeuroSounds generates audio in real-time using Web Audio — it never loops, never repeats, and never interrupts. Mix multiple sounds together with independent volume controls, plus binaural beats for focus and calm. You also get 5 more interactive tools, not just noise."},
       {q:"I always forget to use apps like this. Will this be different?",a:"We designed for this exact problem. No login required. Tools work instantly with zero setup. The brain dump has a 7-minute timer that creates urgency. Everything saves locally so you never lose work. We don't guilt-trip you with streak counts or 'you missed 47 days!' notifications."},
       {q:"Can I use this during a meltdown or shutdown?",a:"Yes — this is a core design principle. The grounding tool and breathing exercise are specifically built for crisis moments. Large tap targets, minimal text, calming colors, no cognitive load. They work even when you can barely think."},
-      {q:"Is my data private?",a:"Your data stays on YOUR device using local browser storage. We don't have accounts, we don't collect personal data, and we don't sell anything. Pro features sync via encrypted cloud storage, but free tools are 100% local and private."},
+      {q:"Is my data private?",a:"Your data stays on YOUR device using local browser storage. We don't have accounts, we don't collect personal data, and we don't sell anything. Everything is 100% local and private — we literally can't see your data even if we wanted to."},
       {q:"What if I subscribe and don't use it?",a:"Cancel anytime with one click — no calls, no emails, no guilt trips. We also offer a 7-day free trial. If you forget to cancel, just email us and we'll refund you. We're neurodivergent too — we understand."},
       {q:"Is this clinically validated?",a:"Our tools are built on evidence-based therapeutic techniques: the Eisenhower matrix, 5-4-3-2-1 sensory grounding (used in CBT/DBT), 4-7-8 breathing (developed by Dr. Andrew Weil), binaural beat research, and habit stacking. We work with clinical psychologists who specialize in neurodivergent care."},
       {q:"Can my therapist see my data?",a:"We're building a 'Share with provider' feature that lets you export mood data, sensory profile, and habits as a PDF for sessions. This gives your therapist real data instead of 'I think I had a bad week?'"},
@@ -546,11 +664,9 @@
     // ═══════ WHOP CONFIG ═══════
     // Replace these with your actual Whop Plan IDs from dashboard
     const WHOP = {
-      PRO_MONTHLY: "plan_8AeasZpe59BOA",      // $4.97/mo
-      PRO_YEARLY: "plan_8AeasZpe59BOA",       // $39.97/yr (using monthly until yearly plan created)
-      FAMILY_MONTHLY: "plan_XXXXXXXXXX",   // $9.97/mo
-      FAMILY_YEARLY: "plan_XXXXXXXXXX",    // $79.70/yr
-      STORE_URL: "https://whop.com/neuroguardian/", // Your Whop store URL
+      PRO_MONTHLY: "plan_8AeasZpe59BOA",
+      PRO_YEARLY: "plan_8AeasZpe59BOA",
+      STORE_URL: "https://whop.com/neuroguardian/",
     };
 
     // ═══════ MAIN APP ═══════
@@ -560,9 +676,46 @@
       const [openFaq,setOpenFaq]=useState(null);
       const [email,setEmail]=useState("");
       const [emailSent,setEmailSent]=useState(false);
+      const [emailLoading,setEmailLoading]=useState(false);
+      const [emailError,setEmailError]=useState("");
+      const [showSticky,setShowSticky]=useState(false);
+
+      // Scroll to top on page change
+      useEffect(()=>{window.scrollTo(0,0);},[page]);
+
+      // Show sticky bar after scrolling past hero
+      useEffect(()=>{
+        const onScroll=()=>setShowSticky(window.scrollY>600);
+        window.addEventListener("scroll",onScroll,{passive:true});
+        return ()=>window.removeEventListener("scroll",onScroll);
+      },[]);
+
+      // Real email submission via Web3Forms
+      const submitEmail=async()=>{
+        if(!email.includes("@")||!email.includes("."))return;
+        setEmailLoading(true);
+        setEmailError("");
+        try{
+          const res=await fetch("https://api.web3forms.com/submit",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+              access_key:"3c2da51e-457a-4183-bc95-b7fc6843ac04",
+              email:email,
+              subject:"New NeuroGuardian Subscriber",
+              from_name:"NeuroGuardian Opt-In",
+              message:`New email subscriber: ${email}\nSource: NeuroGuardian Landing Page\nDate: ${new Date().toISOString()}`
+            })
+          });
+          const data=await res.json();
+          if(data.success){setEmailSent(true);}
+          else{setEmailError("Something went wrong. Please try again.");}
+        }catch(err){setEmailError("Network error. Please try again.");}
+        setEmailLoading(false);
+      };
       const [billing,setBilling]=useState("monthly");
       const [activeTool,setActiveTool]=useState("dump");
-      const [showCheckout,setShowCheckout]=useState(null); // null | "pro" | "family"
+      const [showCheckout,setShowCheckout]=useState(null);
       const checkoutRef=useRef(null);
 
       function upgrade(){setShowCheckout("pro");}
@@ -572,9 +725,7 @@
       useEffect(()=>{
         if(showCheckout&&checkoutRef.current){
           checkoutRef.current.innerHTML="";
-          const planId=showCheckout==="family"
-            ?(billing==="yearly"?WHOP.FAMILY_YEARLY:WHOP.FAMILY_MONTHLY)
-            :(billing==="yearly"?WHOP.PRO_YEARLY:WHOP.PRO_MONTHLY);
+          const planId=billing==="yearly"?WHOP.PRO_YEARLY:WHOP.PRO_MONTHLY;
           const div=document.createElement("div");
           div.setAttribute("data-whop-checkout-plan-id",planId);
           div.setAttribute("data-whop-checkout-theme","dark");
@@ -603,6 +754,7 @@
         {id:"focus",name:"Focus Planner",desc:"Top 3 priorities only",icon:I.focus,color:C.blue,bg:C.ltblue,free:false},
         {id:"habits",name:"Habit Tracker",desc:"Consistency beats perfection",icon:I.check,color:C.green,bg:C.ltgreen,free:false},
         {id:"sensory",name:"Sensory Profile",desc:"Know what calms you",icon:I.zap,color:C.coral,bg:C.ltcoral,free:false},
+        {id:"sounds",name:"NeuroSounds",desc:"Mix calming sounds",icon:I.headphones,color:C.lav,bg:C.ltlav,free:false},
       ];
 
       // ═══════ HOME PAGE ═══════
@@ -613,7 +765,7 @@
             <div style={{background:C.deep,borderRadius:20,padding:32,maxWidth:480,width:"100%",position:"relative",border:`2px solid ${C.gold}33`,maxHeight:"90vh",overflowY:"auto"}}>
               <button onClick={closeCheckout} style={{position:"absolute",top:16,right:16,background:"none",border:"none",color:C.mgray,fontSize:24,cursor:"pointer",lineHeight:1}}>&times;</button>
               <div style={{textAlign:"center",marginBottom:20}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{showCheckout==="family"?"Family Plan":"Pro Plan"}</div>
+                <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>Pro Plan</div>
                 <h3 style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:700,color:"white",marginBottom:4}}>Unlock All Tools</h3>
                 <p style={{fontSize:13,color:C.mint,opacity:0.8}}>7-day free trial. Cancel anytime.</p>
                 <div style={{display:"inline-flex",background:"rgba(255,255,255,0.06)",borderRadius:8,padding:2,marginTop:12,border:"1px solid rgba(255,255,255,0.08)"}}>
@@ -663,17 +815,17 @@
                 Your Brain Isn't Broken.<br/><span className="shimmer-text">Your Tools Were.</span>
               </h1>
               <p className="anim-up-d2" style={{fontSize:17,color:C.mint,lineHeight:1.7,maxWidth:500,margin:"0 auto 32px",opacity:0.9}}>
-                Interactive brain dump, grounding exercises, mood tracking, focus planning, and 52 calming sounds — all designed for ADHD, autism, and AuDHD brains.
+                Interactive brain dump, grounding exercises, mood tracking, focus planning, and 12 mixable calming sounds — all designed for ADHD, autism, and AuDHD brains.
               </p>
               <div className="anim-up-d3" style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",marginBottom:40}}>
                 <button onClick={()=>setPage("app")} style={{padding:"16px 36px",background:C.gold,color:C.deep,border:"none",borderRadius:10,fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:"0 4px 24px rgba(196,154,69,0.35)"}}>Start Free — No Sign Up Needed</button>
                 <a href="#how-it-works" style={{padding:"16px 28px",background:"rgba(255,255,255,0.05)",color:C.mint,border:"1px solid rgba(168,213,216,0.2)",borderRadius:10,fontWeight:600,fontSize:15,textDecoration:"none"}}>See How It Works</a>
               </div>
               <div className="anim-up-d4 stat-row" style={{display:"flex",justifyContent:"center",gap:40,paddingTop:16,borderTop:"1px solid rgba(168,213,216,0.1)"}}>
-                {[{val:2847,suffix:"+",label:"Active Users"},{val:9,suffix:"",label:"Interactive Tools"},{val:52,suffix:"",label:"Calming Sounds"},{val:4.9,suffix:"",label:"Avg Rating",isStar:true}].map((s,i)=>(
+                {[{val:3,suffix:"",label:"Free Tools"},{val:5,suffix:"",label:"Pro Tools"},{val:12,suffix:"",label:"Mixable Sounds"},{val:0,suffix:"",label:"Sign-Ups Required",isZero:true}].map((s,i)=>(
                   <div key={i} style={{textAlign:"center"}}>
-                    <div style={{fontFamily:"'Fraunces',serif",fontSize:24,fontWeight:800,color:"white"}}>{s.isStar?"4.9":<AnimCount target={s.val} suffix={s.suffix}/>}</div>
-                    <div style={{fontSize:11,color:C.mgray,marginTop:2}}>{s.isStar&&<span style={{color:C.gold}}>★★★★★ </span>}{s.label}</div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontSize:24,fontWeight:800,color:"white"}}>{s.isZero?"0":<AnimCount target={s.val} suffix={s.suffix}/>}</div>
+                    <div style={{fontSize:11,color:C.mgray,marginTop:2}}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -713,7 +865,7 @@
                 <h2 style={{fontFamily:"'Fraunces',serif",fontSize:28,fontWeight:700,color:"white"}}>Designed Different. On Purpose.</h2>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}} className="grid-3">
-                {[{icon:<I.brain/>,t:"ADHD-Native Design",d:"Built from scratch around how neurodivergent brains actually process, focus, and regulate.",c:C.teal},{icon:<I.shield/>,t:"Crisis-Ready Tools",d:"Grounding and breathing work during meltdowns. Large targets, zero cognitive load.",c:C.lav},{icon:<I.headphones/>,t:"52 Procedural Sounds",d:"Real-time synthesized audio that never loops. Brown noise, rain, binaural beats.",c:C.blue},{icon:<I.chart/>,t:"Pattern Recognition",d:"Track energy, mood, focus, and sleep. Discover what actually works for your brain.",c:C.gold},{icon:<I.sparkle/>,t:"Zero Shame Design",d:"No streaks that guilt-trip you. Miss a week? Your data is right where you left it.",c:C.green},{icon:<I.users/>,t:"Community-Informed",d:"Every feature built from neurodivergent user feedback via Reddit and Discord.",c:C.coral}].map((b,i)=>(
+                {[{icon:<I.brain/>,t:"ADHD-Native Design",d:"Built from scratch around how neurodivergent brains actually process, focus, and regulate.",c:C.teal},{icon:<I.shield/>,t:"Crisis-Ready Tools",d:"Grounding and breathing work during meltdowns. Large targets, zero cognitive load.",c:C.lav},{icon:<I.headphones/>,t:"12 Mixable Sounds",d:"Real-time synthesized audio that never loops. Brown noise, rain, binaural beats — mix them together.",c:C.blue},{icon:<I.chart/>,t:"Pattern Recognition",d:"Track energy, mood, focus, and sleep. Discover what actually works for your brain.",c:C.gold},{icon:<I.sparkle/>,t:"Zero Shame Design",d:"No streaks that guilt-trip you. Miss a week? Your data is right where you left it.",c:C.green},{icon:<I.users/>,t:"Community-Informed",d:"Every feature built from neurodivergent user feedback via Reddit and Discord.",c:C.coral}].map((b,i)=>(
                   <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:24}}>
                     <div style={{width:44,height:44,borderRadius:10,background:b.c+"15",display:"flex",alignItems:"center",justifyContent:"center",color:b.c,marginBottom:14}}>{b.icon}</div>
                     <h3 style={{fontSize:15,fontWeight:700,color:"white",marginBottom:6}}>{b.t}</h3>
@@ -728,7 +880,7 @@
           <section style={{padding:"5rem 20px",maxWidth:900,margin:"0 auto"}}>
             <div style={{textAlign:"center",marginBottom:32}}>
               <div style={{fontSize:11,fontWeight:700,color:C.teal,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>Your Toolkit</div>
-              <h2 style={{fontFamily:"'Fraunces',serif",fontSize:26,fontWeight:700,color:C.deep}}>7 Interactive Tools. 3 Free Forever.</h2>
+              <h2 style={{fontFamily:"'Fraunces',serif",fontSize:26,fontWeight:700,color:C.deep}}>8 Interactive Tools. 3 Free Forever.</h2>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:16}}>
               {tools.map(t=><div key={t.id} onClick={()=>setPage("app")} className="hover-lift" style={{background:"white",borderRadius:14,padding:20,border:"1px solid #e8ecee"}}>
@@ -739,16 +891,6 @@
                 <h3 style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:4}}>{t.name}</h3>
                 <p style={{fontSize:13,color:C.mgray,lineHeight:1.5}}>{t.desc}</p>
               </div>)}
-              {/* NeuroSounds card */}
-              <div onClick={()=>setPage("app")} className="hover-lift" style={{background:"linear-gradient(135deg,#080E12,#0D1820)",borderRadius:14,padding:20,border:`1px solid ${C.gold}33`}}>
-                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                  <div style={{width:40,height:40,borderRadius:10,background:"rgba(196,154,69,0.15)",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold}}><I.headphones/></div>
-                  <Badge color={C.gold} bg="rgba(196,154,69,0.15)">Pro</Badge>
-                  <span style={{fontSize:10,fontWeight:700,color:C.teal,background:C.teal+"22",padding:"2px 8px",borderRadius:10}}>52 SOUNDS</span>
-                </div>
-                <h3 style={{fontSize:16,fontWeight:700,color:"white",marginBottom:4}}>NeuroSounds</h3>
-                <p style={{fontSize:13,color:C.mint,lineHeight:1.5,opacity:0.8}}>Procedural audio synthesis. Brown noise, rain, binaural beats — never loops.</p>
-              </div>
             </div>
           </section>
 
@@ -772,44 +914,64 @@
             </div>
           </section>
 
+          {/* COMPARISON — "This vs That" */}
+          <section style={{padding:"5rem 20px",maxWidth:700,margin:"0 auto"}}>
+            <div style={{textAlign:"center",marginBottom:40}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.coral,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>The Difference</div>
+              <h2 style={{fontFamily:"'Fraunces',serif",fontSize:26,fontWeight:700,color:C.deep}}>Built Different. On Purpose.</h2>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,borderRadius:16,overflow:"hidden",border:"1px solid #e8ecee"}} className="grid-2">
+              <div style={{background:"#FEF2F2",padding:28}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.coral,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>❌ Typical Apps</div>
+                {["Require account creation","47-item to-do lists","Shame you for missing days","Looping sounds with ads","Designed for neurotypical brains","Break when you're in crisis","Track everything, understand nothing"].map(x=><div key={x} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 0",fontSize:13,color:"#8B4545"}}><span style={{flexShrink:0}}>✗</span> {x}</div>)}
+              </div>
+              <div style={{background:C.xmint,padding:28}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.teal,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>✓ NeuroGuardian</div>
+                {["No account needed — instant","Max 3 priorities per day","Zero guilt. Your data waits.","Procedural audio, never loops","Every pixel for ND brains","Crisis tools work mid-meltdown","Track patterns, find YOUR formula"].map(x=><div key={x} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 0",fontSize:13,color:C.teal,fontWeight:500}}><span style={{flexShrink:0,color:C.green}}>✓</span> {x}</div>)}
+              </div>
+            </div>
+          </section>
+
           {/* PRICING */}
           <section id="pricing" style={{background:`linear-gradient(170deg,#060B0F 0%,${C.deep} 40%,#0A2028 100%)`,padding:"5rem 20px"}}>
-            <div style={{maxWidth:960,margin:"0 auto",textAlign:"center"}}>
+            <div style={{maxWidth:720,margin:"0 auto",textAlign:"center"}}>
               <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>Simple Pricing</div>
               <h2 style={{fontFamily:"'Fraunces',serif",fontSize:28,fontWeight:700,color:"white",marginBottom:8}}>Start Free. Upgrade When Ready.</h2>
               <p style={{color:C.mint,fontSize:14,marginBottom:20,opacity:0.8}}>No pressure. The free tools are powerful on their own.</p>
               <div style={{display:"inline-flex",background:"rgba(255,255,255,0.06)",borderRadius:10,padding:3,marginBottom:36,border:"1px solid rgba(255,255,255,0.08)"}}>
                 {["monthly","yearly"].map(b=><button key={b} onClick={()=>setBilling(b)} style={{padding:"8px 24px",borderRadius:8,border:"none",background:billing===b?C.gold:"transparent",color:billing===b?C.deep:C.mgray,fontWeight:600,fontSize:13,cursor:"pointer"}}>{b==="monthly"?"Monthly":"Yearly (save 33%)"}</button>)}
               </div>
-              <div className="pricing-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,maxWidth:900,margin:"0 auto"}}>
+              <div className="pricing-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,maxWidth:680,margin:"0 auto"}}>
                 {/* Free */}
-                <div className="pricing-card" style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(168,213,216,0.12)",borderRadius:18,padding:28,textAlign:"left"}}>
+                <div className="pricing-card" style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(168,213,216,0.12)",borderRadius:18,padding:32,textAlign:"left"}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.mint,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Free</div>
-                  <div style={{fontFamily:"'Fraunces',serif",fontSize:36,fontWeight:800,color:"white",marginBottom:4}}>$0</div>
-                  <div style={{fontSize:12,color:C.mgray,marginBottom:24}}>Forever. No credit card.</div>
-                  {["Brain Dump Tool","5-4-3-2-1 Grounding","4-7-8 Breathing","Local data storage","Works offline"].map(f=><div key={f} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 0",fontSize:13,color:C.mint}}><span style={{color:C.green}}>✓</span> {f}</div>)}
-                  <button onClick={()=>setPage("app")} style={{width:"100%",marginTop:20,padding:"13px",background:"rgba(168,213,216,0.08)",color:C.mint,border:"1px solid rgba(168,213,216,0.15)",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>Start Free</button>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:40,fontWeight:800,color:"white",marginBottom:4}}>$0</div>
+                  <div style={{fontSize:12,color:C.mgray,marginBottom:24}}>Forever. No credit card needed.</div>
+                  {["Brain Dump + Eisenhower Sort","5-4-3-2-1 Grounding Exercise","4-7-8 Breathing Exercise","Saves to your device","Works offline — no account"].map(f=><div key={f} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 0",fontSize:13,color:C.mint}}><span style={{color:C.green,flexShrink:0,marginTop:1}}>✓</span> {f}</div>)}
+                  <button onClick={()=>setPage("app")} style={{width:"100%",marginTop:24,padding:"14px",background:"rgba(168,213,216,0.08)",color:C.mint,border:"1px solid rgba(168,213,216,0.15)",borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>Start Free</button>
                 </div>
                 {/* Pro */}
-                <div className="pricing-card anim-glow" style={{background:"rgba(196,154,69,0.06)",border:`2px solid ${C.gold}`,borderRadius:18,padding:28,textAlign:"left",position:"relative",transform:"scale(1.03)"}}>
-                  <div style={{position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",background:`linear-gradient(90deg,${C.gold},#D4A84F)`,color:C.deep,fontSize:10,fontWeight:800,padding:"5px 16px",borderRadius:20,whiteSpace:"nowrap"}}>MOST POPULAR</div>
+                <div className="pricing-card anim-glow" style={{background:"rgba(196,154,69,0.06)",border:`2px solid ${C.gold}`,borderRadius:18,padding:32,textAlign:"left",position:"relative"}}>
+                  <div style={{position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",background:`linear-gradient(90deg,${C.gold},#D4A84F)`,color:C.deep,fontSize:10,fontWeight:800,padding:"5px 16px",borderRadius:20,whiteSpace:"nowrap"}}>BEST VALUE</div>
                   <div style={{fontSize:12,fontWeight:700,color:C.gold,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Pro</div>
-                  <div style={{fontFamily:"'Fraunces',serif",fontSize:36,fontWeight:800,color:"white"}}>{billing==="monthly"?<>$4<span style={{fontSize:18}}>.97</span></>:<>$3<span style={{fontSize:18}}>.33</span></>}<span style={{fontSize:13,fontWeight:400,color:C.mgray}}>/mo</span></div>
-                  <div style={{fontSize:12,color:C.mgray,marginBottom:24}}>{billing==="yearly"?"Billed $39.97/year":"or $39.97/year (save 33%)"}</div>
-                  {["Everything in Free","Energy & Mood Tracker","Daily Focus Planner","Habit Tracker + Streaks","Sensory Profile Builder","NeuroSounds (52 sounds)","All PDF templates","Cloud sync + history","New tools as we build them"].map(f=><div key={f} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",fontSize:13,color:C.mint}}><span style={{color:C.gold}}>✓</span> {f}</div>)}
-                  <button onClick={upgrade} style={{width:"100%",marginTop:16,padding:"14px",background:C.gold,color:C.deep,border:"none",borderRadius:10,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 20px rgba(196,154,69,0.3)"}}>Start 7-Day Free Trial</button>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:40,fontWeight:800,color:"white"}}>{billing==="monthly"?<>$4<span style={{fontSize:20}}>.97</span></>:<>$3<span style={{fontSize:20}}>.33</span></>}<span style={{fontSize:13,fontWeight:400,color:C.mgray}}>/mo</span></div>
+                  <div style={{fontSize:12,color:C.mgray,marginBottom:24}}>{billing==="yearly"?"Billed $39.97/year · 7-day free trial":"or $39.97/year (save 33%) · 7-day free trial"}</div>
+                  {["Everything in Free, plus:","Energy & Mood Tracker","Daily Focus Planner (Top 3)","Habit Tracker with streaks","Sensory Profile Builder","NeuroSounds — 12 mixable sounds","Binaural beats for focus + calm","New tools added regularly"].map((f,i)=><div key={f} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"6px 0",fontSize:13,color:i===0?C.gold:C.mint,fontWeight:i===0?700:400}}>{i>0&&<span style={{color:C.gold,flexShrink:0,marginTop:1}}>✓</span>} {f}</div>)}
+                  <button onClick={upgrade} style={{width:"100%",marginTop:20,padding:"15px",background:C.gold,color:C.deep,border:"none",borderRadius:10,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 20px rgba(196,154,69,0.3)"}}>Start 7-Day Free Trial</button>
                   <div style={{fontSize:10,color:C.mgray,textAlign:"center",marginTop:8}}>Cancel anytime. No questions asked.</div>
                 </div>
-                {/* Family */}
-                <div className="pricing-card" style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(168,213,216,0.12)",borderRadius:18,padding:28,textAlign:"left"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.sky,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4}}>Family</div>
-                  <div style={{fontFamily:"'Fraunces',serif",fontSize:36,fontWeight:800,color:"white"}}>{billing==="monthly"?<>$9<span style={{fontSize:18}}>.97</span></>:<>$6<span style={{fontSize:18}}>.64</span></>}<span style={{fontSize:13,fontWeight:400,color:C.mgray}}>/mo</span></div>
-                  <div style={{fontSize:12,color:C.mgray,marginBottom:24}}>{billing==="yearly"?"Billed $79.70/year":"Up to 5 family members"}</div>
-                  {["Everything in Pro","Up to 5 profiles","Family dashboard","Shared crisis plans","Kid-friendly mode","Caregiver insights","Priority support","Export for providers"].map(f=><div key={f} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",fontSize:13,color:C.mint}}><span style={{color:C.sky}}>✓</span> {f}</div>)}
-                  <button onClick={()=>setShowCheckout("family")} style={{width:"100%",marginTop:16,padding:"13px",background:"rgba(90,153,184,0.15)",color:C.sky,border:`1px solid ${C.sky}33`,borderRadius:10,fontWeight:600,fontSize:14,cursor:"pointer"}}>Start Family Trial</button>
-                </div>
               </div>
-              <div style={{marginTop:32,display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:C.mgray,fontSize:12}}>🛡️ 30-day money-back guarantee.</div>
+              <div style={{marginTop:32,display:"flex",alignItems:"center",justifyContent:"center",gap:16,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:C.mgray}}>🛡️ 30-day money-back guarantee</span>
+                <span style={{fontSize:12,color:C.mgray}}>•</span>
+                <span style={{fontSize:12,color:C.mgray}}>🔒 Secure payment via Whop</span>
+                <span style={{fontSize:12,color:C.mgray}}>•</span>
+                <span style={{fontSize:12,color:C.mgray}}>💬 Cancel with one click</span>
+              </div>
+              <div style={{marginTop:24,padding:"16px 24px",background:"rgba(196,154,69,0.06)",borderRadius:12,border:"1px solid rgba(196,154,69,0.15)",maxWidth:500,margin:"24px auto 0"}}>
+                <p style={{fontSize:13,color:C.mint,lineHeight:1.6,fontStyle:"italic"}}>"Less than the cost of one coffee per week — and it replaced 3 apps I was paying $15/month for."</p>
+                <p style={{fontSize:11,color:C.gold,marginTop:6,fontWeight:600}}>— Actual user feedback</p>
+              </div>
             </div>
           </section>
 
@@ -831,11 +993,14 @@
               <h2 style={{fontFamily:"'Fraunces',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:8}}>Get ADHD-Friendly Tips Weekly</h2>
               <p style={{fontSize:14,color:C.mgray,lineHeight:1.6,marginBottom:24}}>Practical strategies and new tool announcements. No spam, no fluff.</p>
               {emailSent?<div style={{background:"white",borderRadius:12,padding:20,border:`2px solid ${C.green}`}}><span style={{fontSize:24}}>🎉</span><p style={{fontSize:15,fontWeight:600,color:C.green,marginTop:8}}>You're in! Check your inbox.</p></div>:
-              <div style={{display:"flex",gap:8,maxWidth:440,margin:"0 auto"}}>
-                <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&email.includes("@")&&setEmailSent(true)} placeholder="your@email.com" type="email" style={{flex:1,padding:"14px 18px",borderRadius:10,border:`1.5px solid ${C.lgray}`,fontSize:15,fontFamily:"inherit",outline:"none",background:"white"}}/>
-                <button onClick={()=>{if(email.includes("@"))setEmailSent(true);}} style={{padding:"14px 24px",background:C.teal,color:"white",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>Subscribe</button>
+              <div>
+                <div style={{display:"flex",gap:8,maxWidth:440,margin:"0 auto"}}>
+                  <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submitEmail()} placeholder="your@email.com" type="email" disabled={emailLoading} style={{flex:1,padding:"14px 18px",borderRadius:10,border:`1.5px solid ${C.lgray}`,fontSize:15,fontFamily:"inherit",outline:"none",background:"white",opacity:emailLoading?.6:1}}/>
+                  <button onClick={submitEmail} disabled={emailLoading} style={{padding:"14px 24px",background:emailLoading?"#888":C.teal,color:"white",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:emailLoading?"not-allowed":"pointer",whiteSpace:"nowrap",minWidth:110}}>{emailLoading?"Sending...":"Subscribe"}</button>
+                </div>
+                {emailError&&<p style={{fontSize:13,color:"#e74c3c",marginTop:8}}>{emailError}</p>}
               </div>}
-              <p style={{fontSize:11,color:C.mgray,marginTop:12}}>Join 1,200+ neurodivergent folks. Unsubscribe anytime.</p>
+              <p style={{fontSize:11,color:C.mgray,marginTop:12}}>Free weekly tips for neurodivergent minds. Unsubscribe anytime.</p>
             </div>
           </section>
 
@@ -862,19 +1027,32 @@
               </div>
               <div>
                 <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Product</div>
-                {["Free Tools","Pro Features","NeuroSounds","PDF Templates","Pricing"].map(l=><div key={l} style={{fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer"}}>{l}</div>)}
+                <div onClick={()=>setPage("app")} style={{fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer"}}>Free Tools</div>
+                <a href="#pricing" style={{display:"block",fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer",textDecoration:"none"}}>Pro Features</a>
+                <a href="#pricing" style={{display:"block",fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer",textDecoration:"none"}}>Pricing</a>
+                <a href="#faq" style={{display:"block",fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer",textDecoration:"none"}}>FAQ</a>
               </div>
               <div>
                 <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Support</div>
-                {["FAQ","Contact Us","Privacy Policy","Terms of Service","Accessibility"].map(l=><div key={l} style={{fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer"}}>{l}</div>)}
+                <a href="#faq" style={{display:"block",fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer",textDecoration:"none"}}>FAQ</a>
+                <a href="mailto:support@neurodivergentharmony.com" style={{display:"block",fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0",cursor:"pointer",textDecoration:"none"}}>Contact Us</a>
+                <div style={{fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0"}}>Privacy Policy</div>
+                <div style={{fontSize:13,color:C.mint,opacity:0.7,padding:"4px 0"}}>Terms of Service</div>
               </div>
             </div>
           </footer>
+
+          {/* STICKY CTA BAR */}
+          {showSticky&&page==="home"&&<div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:999,background:"rgba(15,43,53,0.97)",backdropFilter:"blur(12px)",borderTop:`2px solid ${C.gold}`,padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:16,flexWrap:"wrap",animation:"fadeIn 0.3s ease"}}>
+            <span style={{fontSize:13,color:C.mint,fontWeight:500}}>3 free tools — no sign-up needed</span>
+            <button onClick={()=>setPage("app")} style={{padding:"10px 24px",background:C.gold,color:C.deep,border:"none",borderRadius:8,fontWeight:700,fontSize:13,cursor:"pointer"}}>Open App — Free</button>
+            <button onClick={upgrade} style={{padding:"10px 24px",background:"transparent",color:C.gold,border:`1px solid ${C.gold}`,borderRadius:8,fontWeight:600,fontSize:13,cursor:"pointer"}}>Try Pro Free</button>
+          </div>}
         </div>
       );
 
       // ═══════ APP VIEW ═══════
-      const comps={dump:<BrainDumpTool/>,ground:<GroundingTool/>,breathe:<BreathingTool/>,mood:<MoodTracker isPremium={isPremium} onUpgrade={upgrade}/>,focus:<FocusPlanner isPremium={isPremium} onUpgrade={upgrade}/>,habits:<HabitTracker isPremium={isPremium} onUpgrade={upgrade}/>,sensory:<SensoryProfile isPremium={isPremium} onUpgrade={upgrade}/>};
+      const comps={dump:<BrainDumpTool/>,ground:<GroundingTool/>,breathe:<BreathingTool/>,mood:<MoodTracker isPremium={isPremium} onUpgrade={upgrade}/>,focus:<FocusPlanner isPremium={isPremium} onUpgrade={upgrade}/>,habits:<HabitTracker isPremium={isPremium} onUpgrade={upgrade}/>,sensory:<SensoryProfile isPremium={isPremium} onUpgrade={upgrade}/>,sounds:<NeuroSounds isPremium={isPremium} onUpgrade={upgrade}/>};
       const cur=tools.find(t=>t.id===activeTool);
 
       return(
@@ -884,7 +1062,7 @@
             <div style={{background:C.deep,borderRadius:20,padding:32,maxWidth:480,width:"100%",position:"relative",border:`2px solid ${C.gold}33`,maxHeight:"90vh",overflowY:"auto"}}>
               <button onClick={closeCheckout} style={{position:"absolute",top:16,right:16,background:"none",border:"none",color:C.mgray,fontSize:24,cursor:"pointer",lineHeight:1}}>&times;</button>
               <div style={{textAlign:"center",marginBottom:20}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{showCheckout==="family"?"Family Plan":"Pro Plan"}</div>
+                <div style={{fontSize:11,fontWeight:700,color:C.gold,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>Pro Plan</div>
                 <h3 style={{fontFamily:"'Fraunces',serif",fontSize:22,fontWeight:700,color:"white",marginBottom:4}}>Unlock All Tools</h3>
                 <p style={{fontSize:13,color:C.mint,opacity:0.8}}>7-day free trial. Cancel anytime.</p>
               </div>
